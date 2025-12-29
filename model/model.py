@@ -1,8 +1,14 @@
 import os
 import socket
-from datetime import datetime
 import psutil
-from enum import Enum
+
+# According to uuid1() getnode() is used to get hardware address aka hostid
+from uuid import getnode
+
+from model.schemas import EventModel, processinfo, agent_info
+from model.eventfactory import EventFactory
+
+# For test
 from collections.abc import ItemsView
 
 
@@ -15,68 +21,77 @@ class testeable:
             print(f"{str(k)} = {str(v)}")
 
 
-class EventType(Enum):
-    process_start = 1
-    process_exit = 2
-    net_conn = 3
-    dns_query = 4
-    heartbeat = 5
-    etc = 6
-
-
-class process:
-    def __init__(self, pid: int):
-        self.pid: int = pid
-
-        self.ppid: int
-        self.name: str
-        self.exe_path: str
-
-        self.cmd_line: str
-        self.user_uid: int
-        self.user_name: str
-
-        self.working_dir: str  # optional
-
-        # For proces enrichment
-        self.hash_exe: str
-        self.signature: str  # optional
-
-    def process_enrichment(self):
-        pass
-
-    def process_snapshot(self):
-        pass
-
-
-class event:
-    def __init__(self, id: str, type: str, pid: int):
-        self.id: str
-        self.type: list[str]
-        self.created: datetime = datetime.now()
-
-    def process_telemetry(self):
-        pass
-
-
-class agent(testeable):
+class Agent:
     def __init__(self):
-        osinfo = os.uname()
+        osinfo: os.uname_result = os.uname()
         self.id: str = "Agentv1"
         self.version: float = 1.0
         self.OSsysname: str = osinfo[0]
         self.hostname: str = socket.gethostname()
         self.OSrelease: str = osinfo[2]
         self.OSVersion: str = osinfo[3]
-        self.hostId: str
+        self.hostId: int = getnode()
+
+    def get_agent_info(self):
+        return agent_info(
+            id=self.id,
+            version=self.version,
+            OSsysname=self.OSsysname,
+            hostname=self.hostname,
+            OSrelease=self.OSrelease,
+            OSVersion=self.OSVersion,
+            hostId=self.hostId,
+        )
 
 
-class EventModel(agent):
-    def __init__(self) -> None:
-        super().__init__()
+# Collector watches the world and decides what happened.
+class Proccess_Collector_Decider:
+    def __init__(self):
+        self._seen_procs: set[int] = set()
+        self.agent: agent_info = Agent().get_agent_info()
 
-    def iterate_events(self):
-        pass
+    def poll(self):
+        events: list[EventModel] = []
+
+        procs = {
+            p.pid: processinfo(**p.info)
+            for p in psutil.process_iter(
+                [
+                    "pid",
+                    "ppid",
+                    "name",
+                    "exe",
+                    "create_time",
+                    "terminal",
+                    "cmdline",
+                    "uids",
+                    "username",
+                    "cwd",
+                ]
+            )
+        }
+
+        # First iteration ignore current running process
+        if not self._seen_procs:
+            self._seen_procs = set(procs.keys())
+            return events
+
+        # process start
+        for pid, proc in procs.items():
+            if pid not in self._seen_procs:
+                events.append(
+                    EventFactory.process_start(
+                        proc=proc, agent=self.agent, network=None
+                    )
+                )
+
+        # process exit
+        # for pid in list(self._seen_procs):
+        #   if pid not in procs:
+        #       events.append(EventFactory.process_exit(procs)
+
+        self._seen_procs = set(procs.keys())
+        return events
 
 
 def count_open_connections():
@@ -86,3 +101,17 @@ def count_open_connections():
 
 def p_key(d):
     return (d.get("ppid"), d.get("pid"), d.get("proc_name"))
+
+
+if __name__ == "__main__":
+    from time import sleep
+
+    pc = Proccess_Collector_Decider()
+
+    while 1:
+        events = pc.poll()
+
+        print(len(events))
+        print(events)
+
+        sleep(3)

@@ -49,6 +49,7 @@ class Proccess_Collector_Decider:
     def __init__(self):
         self._seen_procs: set[int] = set()
         self.agent: agent_info = Agent().get_agent_info()
+        self.previous_proc_list = {}
 
     def poll(self):
         events: list[EventModel] = []
@@ -74,6 +75,7 @@ class Proccess_Collector_Decider:
         # First iteration ignore current running process
         if not self._seen_procs:
             self._seen_procs = set(procs.keys())
+            self.previous_proc_list = procs.copy()
             return events
 
         # process start
@@ -84,11 +86,22 @@ class Proccess_Collector_Decider:
                         proc=proc, agent=self.agent, network=None
                     )
                 )
-
+        # print("Debug:", procs.keys())
+        for pid, proc in self.previous_proc_list.items():
+            if pid not in procs.keys():
+                events.append(
+                    EventFactory.process_exit(proc=proc, agent=self.agent, network=None)
+                )
         # process exit
         # for pid in list(self._seen_procs):
-        #   if pid not in procs:
-        #       events.append(EventFactory.process_exit(procs)
+        #    if pid not in procs.keys():
+        #        for pid2, proc in self.previous_proc_list.items():
+        #            if pid == pid2:
+        #                events.append(
+        #                    EventFactory.process_exit(
+        #                        proc=proc, agent=self.agent, network=None
+        #                    )
+        #                )
 
         self._seen_procs = set(procs.keys())
         return events

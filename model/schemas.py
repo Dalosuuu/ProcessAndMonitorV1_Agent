@@ -12,9 +12,9 @@ class processinfo:
     name: str
     exe: str
     create_time: datetime
-    terminal: str
-    cmdline: str
-    uids: int
+    terminal: str | None
+    cmdline: list[str]
+    uids: tuple[int, int, int]
     username: str
     cwd: str | None
     # For proces enrichment
@@ -58,5 +58,5 @@ class EventModel:
 
     # Check logic for Event Schema, (example: if event_type is X then do Y)
     def __post_init__(self):
-        if self.timestamp.tzinfo is not None:
+        if self.timestamp.tzinfo is None:
             raise ValueError("timestamp must be timezone aware")

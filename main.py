@@ -1,5 +1,4 @@
 from time import sleep
-import os
 
 
 from model.model import Proccess_Collector_Decider
@@ -11,7 +10,9 @@ while 1:
 
     events = pc.poll()
 
-    print(events)
-    print(len(events))
+    # print(events)
+    for event in events:
+        print(event, "\n")
+    print("Total event last cycle: ", len(events))
 
     sleep(3)

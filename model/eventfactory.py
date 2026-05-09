@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from .schemas import EventModel, EventType, agent_info, networkinfo, processinfo
 from uuid import UUID, uuid4
 
 
 def utc_now() -> datetime:
-    return datetime.now()
+    return datetime.now(timezone.utc)
 
 
 def s_uuid() -> str:

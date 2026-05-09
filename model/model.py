@@ -104,6 +104,7 @@ class Proccess_Collector_Decider:
         #                )
 
         self._seen_procs = set(procs.keys())
+        self.previous_proc_list = procs.copy()
         return events
 
 
